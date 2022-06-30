@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'users'
 ]
 
 MIDDLEWARE = [
@@ -90,9 +91,7 @@ DATABASES = {
                 'host': 'mongodb+srv://aimamaadmin:adminaimama16@cluster0.pr9kchu.mongodb.net/?retryWrites=true&w=majority',
                 'port': 27017,
                 'username': 'aimamaadmin',
-                'password': 'adminaimama16',
-                'authSource': 'cluster0',
-                'authMechanism': 'SCRAM-SHA-1'
+                'password': 'adminaimama16'
             }
         }
     }
