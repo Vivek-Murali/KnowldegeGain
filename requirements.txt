@@ -1,0 +1,7 @@
+django
+django-phonenumber-field==5.0.0
+phonenumberslite==8.12.11
+user-agent==0.1.10
+django-user-visit==0.4
+djangorestframework==3.13.1
+django-cors-headers
