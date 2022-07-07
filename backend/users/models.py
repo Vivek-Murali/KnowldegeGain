@@ -7,9 +7,7 @@ import datetime
 import hashlib
 import uuid
 from typing import Any
-
-
-
+from PIL import Image
 import user_agents
 from django.conf import settings
 from django.http import HttpRequest
@@ -79,15 +77,25 @@ class User(models.Model):
     
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    email_confirmed = models.BooleanField(default=False)
 
-@receiver(post_save, sender=User)
-def update_user_profile(sender, instance, created, **kwargs):
-    if created:
-        Profile.objects.create(user=instance)
-        instance.profile.save()
-        
-        
+    avatar = models.ImageField(default='default.jpg', upload_to='profile_images')
+    bio = models.TextField()
+
+    def __str__(self):
+        return self.user.username
+
+    # resizing images
+    def save(self, *args, **kwargs):
+        super().save()
+
+        img = Image.open(self.avatar.path)
+
+        if img.height > 100 or img.width > 100:
+            new_img = (100, 100)
+            img.thumbnail(new_img)
+            img.save(self.avatar.path)
+            
+            
 class UserVisit(models.Model):
     """
     Record of a user visiting the site on a given day.
@@ -166,8 +174,7 @@ class UserVisit(models.Model):
     def make_json_value(self):
         return {'user':str(self.user),'timestamp':self.timestamp,'session_key':self.session_key,
                 'remote_addr':self.remote_addr,'ua_string':self.ua_string,'hash':self.hash,
-                'uuid':self.uuid,'created_at':self.created_at,'user_id':0,
-                'id':uuid.uuid4().int & (1<<8)-1}
+                'uuid':self.uuid,'created_at':self.created_at,}
 
     @property
     def user_agent(self) -> user_agents.parsers.UserAgent:
