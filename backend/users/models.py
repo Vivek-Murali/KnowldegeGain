@@ -1,4 +1,5 @@
 from __future__ import annotations
+from termios import OLCUC
 from djongo import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -16,7 +17,8 @@ from django.utils.translation import gettext_lazy as _lazy
 
 from .settings import REQUEST_CONTEXT_ENCODER, REQUEST_CONTEXT_EXTRACTOR
 
-
+GENDER = (('Male','Male '),('Female ','Female '),('Others ','Others '))
+OCCUPATION = (('Student', 'Student'),('Employee', 'Employee'),('Researcher', 'Researcher'), ('Others','Others'))
 
 def parse_remote_addr(request: HttpRequest) -> str:
     """Extract client IP from request."""
@@ -52,16 +54,17 @@ class Associations(models.Model):
 
 class User(models.Model):
     _id = models.ObjectIdField(primary_key=True)
-    name = models.CharField(max_length=100)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
     email = models.EmailField(max_length = 254)
-    occupation = models.CharField(max_length=150,null=True)
+    occupation = models.CharField(choices=OCCUPATION, default="Student", max_length=13)
     username = models.CharField(max_length=25)
-    phone_regex = RegexValidator(regex=r'^\+?1?\d{9,15}$', message="")
+    phone_regex = RegexValidator(regex=r'^\+?1?\d{9,15}$', message="Starting with +(Country Code)")
     phoneno = models.CharField(validators=[phone_regex], max_length=17, blank=True)
     location = models.CharField(max_length=100,null=True)
-    password = models.CharField(max_length=50)
-    confirm_password = models.CharField(max_length=50)
-    gender = models.CharField(choices=[('Male','Male'),('Female','Female'),('Others','Others')], default="Male", max_length=6)
+    password1 = models.CharField(max_length=50)
+    password2 = models.CharField(max_length=50)
+    gender = models.CharField(choices=GENDER, default="Male", max_length=7)
     associations = models.EmbeddedField(
         model_container=Associations,null=True, blank=True
     )
@@ -75,6 +78,7 @@ class User(models.Model):
     headline = models.CharField(max_length=255, null=True, blank=True)    
     objects = models.DjongoManager()
     
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 

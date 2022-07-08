@@ -25,7 +25,7 @@ def save_user_visit(user_visit: UserVisit) -> None:
         _serializer = UserActivitySerializer(data=_data)
         if _serializer.is_valid():
             _serializer.save() """ 
-        settings.DATABASE['user_user_visit'].insert(user_visit)
+        settings.DATABASE['user_uservisit'].insert(user_visit)
     except Exception as e:
         logger.warning("Error saving user visit (hash='%s')", user_visit.hash)
 
