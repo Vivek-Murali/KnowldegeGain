@@ -16,6 +16,7 @@ import uuid
 import os
 import requests
 from django.conf import settings
+from .src import main
 
 
 logging.basicConfig(format='%(levelname)-s %(message)s',
@@ -84,13 +85,8 @@ class COREFetch(GenericAPIView):  # generics.CreateAPIView
         Database = settings.MONGO.find_one(collection='userapp_profile',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
         if Database:
             rows = settings.CASSANDRA.query_topics(collection="datasource_core",keywords=text,limit=100)
-            results = []
-            for idx in rows:
-                if idx:
-                    if idx.language:
-                        for key,value in idx.language.items():
-                            results.append({key:value})
-            response_dict = {"RawText": text, "ProcessedData": results,
+            records = main.mapsets(list(rows))
+            response_dict = {"RawText": text, "ProcessedData": records,
                         'ProcessedDate': datetime.utcnow().__str__(),
                         "RequestID": request_id, "status": 200,
                         "Version": settings.VERSION}
