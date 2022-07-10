@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import pymongo
 from dotenv import load_dotenv
+from .database import (CassandraDatabase,AstraDatabase,MongoDatabase)
 
 
 load_dotenv()
@@ -195,3 +196,7 @@ STATIC_URL = '/static/'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+MONGO = MongoDatabase
+CASSANDRA = CassandraDatabase
+ASTRA = AstraDatabase
+VERSION = "0.0.1"
