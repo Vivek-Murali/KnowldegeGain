@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'users',
-    'social_django'
+    'social_django',
+    'ai'
 ]
 
 MIDDLEWARE = [
@@ -93,12 +94,12 @@ DATABASES = {
                     }
                 },
             },
-            'NAME': 'cluster0',
+            'NAME': str(os.getenv('DB_NAME')),
             'CLIENT': {
-                'host': 'mongodb+srv://aimamaadmin:adminaimama16@cluster0.pr9kchu.mongodb.net/?retryWrites=true&w=majority',
+                'host': str(os.getenv('DB_URI')),
                 'port': 27017,
-                'username': 'aimamaadmin',
-                'password': 'adminaimama16'
+                'username': str(os.getenv('DB_USERNAME')),
+                'password': str(os.getenv('DB_PASSWORD'))
             }
         }
     }
@@ -167,12 +168,12 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = str(os.getenv('GOOGLE_SECRET'))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-DEFAULT_FROM_EMAIL = 'vivekmurali24@gmail.com'
-SERVER_EMAIL = 'vivekmurali24@gmail.com'
+DEFAULT_FROM_EMAIL = str(os.getenv('EMAIL'))
+SERVER_EMAIL = str(os.getenv('EMAIL'))
 EMAIL_USE_TLS = True
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = 'vivekmurali24@gmail.com'
-EMAIL_HOST_PASSWORD = 'Z!pzapzoom1'
+EMAIL_HOST_USER = str(os.getenv('EMAIL'))
+EMAIL_HOST_PASSWORD = str(os.getenv('PASSWORD'))
 EMAIL_PORT = 587
 
 
