@@ -35,7 +35,7 @@ DEBUG = True
 
 TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 
-AUTH_USER_MODEL = "authentication.User"
+AUTH_USER_MODEL = "userapp.User"
 
 LOGIN_URL = "/auth/login"
 

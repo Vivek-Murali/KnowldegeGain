@@ -1,4 +1,4 @@
-from .models import Profile
+from .models import User
 import requests
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -44,6 +44,36 @@ def send_activation_email(user, request):
     if not settings.TESTING:
         EmailThread(email).start()
 
+
+
+@auth_user_should_not_access
+def login_user(request):
+
+    if request.method == 'POST':
+        context = {'data': request.POST}
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        user = authenticate(request, username=username, password=password)
+
+        if user and not user.is_email_verified:
+            messages.add_message(request, messages.ERROR,
+                                 'Email is not verified, please check your email inbox')
+            return render(request, 'authentication/login.html', context, status=401)
+
+        if not user:
+            messages.add_message(request, messages.ERROR,
+                                 'Invalid credentials, try again')
+            return render(request, 'authentication/login.html', context, status=401)
+
+        login(request, user)
+
+        messages.add_message(request, messages.SUCCESS,
+                             f'Welcome {user.username}')
+
+        return redirect(reverse('home'))
+
+    return render(request, 'authentication/login.html')
 
 @auth_user_should_not_access
 def register(request):
@@ -105,9 +135,16 @@ def register(request):
 
     return render(request, 'authentication/register.html')
 
+
+def logout_user(request):
+    logout(request)
+    messages.add_message(request, messages.SUCCESS,'Successfully logged out')
+    return redirect(reverse('login'))
+
+
 def index(request):
     context = {
-        'posts': Profile.objects.order_by('-pk')
+        'posts': User.objects.order_by('-pk')
         if request.user.is_authenticated else []
     }
     return render(request, 'blog/index.html', context)

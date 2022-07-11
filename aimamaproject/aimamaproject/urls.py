@@ -45,7 +45,7 @@ urlpatterns = [
     path('admin/', admin.site.urls, name='administrator'),
     re_path(r'^doc(?P<format>\.json|\.yaml)$',schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('', include('social_django.urls', namespace='social')),
-    path('', views_main.index, name='index'),
+    path('', views_main.index, name='home'),
     path('logout/',LogoutView.as_view(template_name=settings.LOGOUT_REDIRECT_URL),name='logout'),
     path('doc/', schema_view.with_ui('swagger', cache_timeout=0),name='schema-swagger-ui'),  #<-- Here
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0),name='schema-redoc'),  #<-- Here  # <-- Here
