@@ -1,17 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-
-  <title>Oppkey Host Management</title>
-
-  <link
-    rel="stylesheet"
-    href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css"
-    integrity="sha384-9gVQ4dYFwwWSjIDZnLEWnxCjeSWFphJiwGPXr1jddIhOegiu1FwO5qRGvFXOdJZ4"
-    crossorigin="anonymous">
-</head>
-<body>
+{% extends "_partials/base.html" %} {% block content %} {% load static %}
   <div class="jumbotron">
     <h1>Oppkey Host Management</h1>
     {% if user.is_authenticated %}
@@ -39,5 +26,4 @@
     </div>
   {% endfor %}
   </div>
-</body>
-</html>
+{% endblock content %}
