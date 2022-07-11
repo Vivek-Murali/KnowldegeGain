@@ -43,20 +43,16 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('admin/', admin.site.urls, name='administrator'),
-    re_path(r'^doc(?P<format>\.json|\.yaml)$',
-            schema_view.without_ui(cache_timeout=0), name='schema-json'),
+    re_path(r'^doc(?P<format>\.json|\.yaml)$',schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('', include('social_django.urls', namespace='social')),
     path('', views_main.index, name='index'),
-    path(
-        'logout/',
-        LogoutView.as_view(template_name=settings.LOGOUT_REDIRECT_URL),
-        name='logout'
-        ),
-    path('doc/', schema_view.with_ui('swagger', cache_timeout=0),
-        name='schema-swagger-ui'),  #<-- Here
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0),
-        name='schema-redoc'),  #<-- Here  # <-- Here
+    path('logout/',LogoutView.as_view(template_name=settings.LOGOUT_REDIRECT_URL),name='logout'),
+    path('doc/', schema_view.with_ui('swagger', cache_timeout=0),name='schema-swagger-ui'),  #<-- Here
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0),name='schema-redoc'),  #<-- Here  # <-- Here
     path('aiapiv1/', include('ai.urls')),
-    #path('ui/', include('ui.urls')),
     path('ui/', include('django.contrib.auth.urls')),
+    path('auth/', include('userapp.urls')),
 ]
+
+handler404 = "helpers.views.handle_not_found"
+handler500 = "helpers.views.handle_server_error"
