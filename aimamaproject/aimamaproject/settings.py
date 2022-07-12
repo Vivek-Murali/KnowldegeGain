@@ -202,6 +202,13 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'aimamaproject/static')]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+EMAIL_FROM_USER = str(os.getenv('EMAIL_FROM_USER'))
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = str(os.getenv('EMAIL_FROM_USER'))
+EMAIL_HOST_PASSWORD = str(os.getenv('EMAIL_HOST_PASSWORD'))
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
