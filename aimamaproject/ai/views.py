@@ -1,3 +1,6 @@
+import re
+from unittest import result
+from urllib import response
 from django.shortcuts import render
 from django.http import JsonResponse
 #from rest_framework.views import APIView
@@ -10,10 +13,12 @@ from .serializer import (TextSerializer, OpenAPISerializer)
 from datetime import datetime
 import logging
 import numpy as np
+import pandas as pd
 import json
 from bson.objectid import ObjectId
 import uuid
 import os
+from itertools import groupby
 import requests
 from django.conf import settings
 from .src import main
@@ -102,6 +107,170 @@ class COREFetch(GenericAPIView):  # generics.CreateAPIView
         else:
             response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
             return JsonResponse(response_dict,status=401)
+        
+class CORETimeline(GenericAPIView):  # generics.CreateAPIView
+    # permission_classes = (Check_API_KEY_Auth,)
+    serializer_class = TextSerializer
+    
+    login_schema = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'Text': openapi.Schema(type=openapi.TYPE_STRING, description='Keyword to search for finidng associations'),
+            'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+        },
+        required=['Text', 'Key']
+    )
+    
+    login_schema_response = {
+        status.HTTP_200_OK: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_201_CREATED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_401_UNAUTHORIZED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_503_SERVICE_UNAVAILABLE: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_400_BAD_REQUEST: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+    }
+
+    @swagger_auto_schema(request_body=login_schema, responses=login_schema_response)
+    def post(self, request):
+        """
+        This text is the description for this API.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+        text = data['Text']
+        request_id = data['Key']
+        objInstance = ObjectId(request_id)
+        if text == '':
+            return Response("Got Empty String", status=status.HTTP_400_BAD_REQUEST)
+        Database = settings.MONGO.find_one(collection='userapp_profile',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        if Database:
+            try:
+                rows = settings.CASSANDRA.query_topics(collection="datasource_core",keywords=text)
+                records = main.mapsets(list(rows))
+                records.sort(key=lambda x:x['datePublished'])
+                result:dict = {}
+                for k,v in groupby(records,key=lambda x:x['datePublished']):
+                    result[k] = list(v)
+                response_dict = {"RawText": text, "ProcessedData": result,
+                        'ProcessedDate': datetime.utcnow().__str__(),
+                        "RequestID": request_id, "status": 200,
+                        "Version": settings.VERSION}
+                return JsonResponse(response_dict, status=200)
+            except Exception as e:
+                response_dict = {"Error": {"Reason": "Internal Server Error-{}".format(e)}}
+                return JsonResponse(response_dict,status=503)
+        else:
+            response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
+            return JsonResponse(response_dict,status=401)
+
+
+class COREVennDiagram(GenericAPIView):  # generics.CreateAPIView
+    # permission_classes = (Check_API_KEY_Auth,)
+    serializer_class = TextSerializer
+    
+    login_schema = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'Text': openapi.Schema(type=openapi.TYPE_STRING, description='Keyword to search for finidng associations'),
+            'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+        },
+        required=['Text', 'Key']
+    )
+    
+    login_schema_response = {
+        status.HTTP_200_OK: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_201_CREATED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_401_UNAUTHORIZED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_503_SERVICE_UNAVAILABLE: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_400_BAD_REQUEST: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+    }
+
+    @swagger_auto_schema(request_body=login_schema, responses=login_schema_response)
+    def post(self, request):
+        """
+        This text is the description for this API.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+        text = data['Text']
+        request_id = data['Key']
+        objInstance = ObjectId(request_id)
+        if text == '':
+            return Response("Got Empty String", status=status.HTTP_400_BAD_REQUEST)
+        Database = settings.MONGO.find_one(collection='userapp_profile',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        if Database:
+            try:
+                rows = settings.CASSANDRA.query_topics(collection="datasource_core",keywords=text)
+                records = main.mapsets(list(rows))
+                records.sort(key=lambda x:x['datePublished'])
+                result:dict = {}
+                for k,v in groupby(lst,key=lambda x:x['date'][:7]):
+                    result[k] = list(v)
+                response_dict = {"RawText": text, "ProcessedData": result,
+                        'ProcessedDate': datetime.utcnow().__str__(),
+                        "RequestID": request_id, "status": 200,
+                        "Version": settings.VERSION}
+                return JsonResponse(response_dict, status=200)
+            except Exception as e:
+                response_dict = {"Error": {"Reason": "Internal Server Error-{}".format(e)}}
+                return JsonResponse(response_dict,status=503)
+        else:
+            response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
+            return JsonResponse(response_dict,status=401)
+
+
+
 
 
 @login_required
