@@ -2,6 +2,8 @@ import email
 from re import U
 from threading import local
 import uuid
+
+from sqlalchemy import null
 from djongo import models
 from flask_login import user_accessed
 from social.apps.django_app.default.models import UserSocialAuth
@@ -41,6 +43,7 @@ class User(AbstractUser):
     is_email_verified = models.BooleanField(default=False)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
     gender = models.CharField(choices=GENDER, default="Male", max_length=7)
+    dob = models.DateTimeField(null=True)
     associations = models.EmbeddedField(
         model_container=Associations,null=True, blank=True
     )

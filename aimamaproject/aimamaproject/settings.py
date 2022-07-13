@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 import os
 from pathlib import Path
 import sys
-import pymongo
+import spacy 
 from dotenv import load_dotenv
 from .database import (CassandraDatabase,AstraDatabase,MongoDatabase)
 
@@ -215,5 +215,6 @@ EMAIL_PORT = 587
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MONGO = MongoDatabase
 CASSANDRA = CassandraDatabase
+SPACYMODEL = spacy.load('en_core_web_md')
 ASTRA = AstraDatabase
 VERSION = "0.0.1"
