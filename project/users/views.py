@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from drf_yasg import openapi
 from rest_framework.generics import GenericAPIView
 from drf_yasg.utils import swagger_auto_schema
-from .serializers import (TextSerializer, OpenAPISerializer)
+from .serializers import (TextSerializer, CitationSerializer, TimelineSerializer, OpenCitationSerializer)
 from datetime import datetime
 import logging
 import numpy as np
@@ -93,7 +93,7 @@ class COREFetch(GenericAPIView):  # generics.CreateAPIView
         objInstance = ObjectId(request_id)
         if text == '':
             return Response("Got Empty String", status=status.HTTP_500_BAD_REQUEST)
-        Database = settings.MONGO.find_one(collection='userapp_user',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
         if Database:
             rows = settings.CASSANDRA.query_topics(collection="datasource_core",keywords=text,limit=100)
             records = main.mapsets(list(rows),remove_cols=["fullText","abstract"])
@@ -108,13 +108,14 @@ class COREFetch(GenericAPIView):  # generics.CreateAPIView
         
 class CORETimeline(GenericAPIView):  # generics.CreateAPIView
     # permission_classes = (Check_API_KEY_Auth,)
-    serializer_class = TextSerializer
+    serializer_class = TimelineSerializer
     
     login_schema = openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
             'Text': openapi.Schema(type=openapi.TYPE_STRING, description='Keyword to search for finidng associations'),
             'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+            'FromYear': openapi.Schema(type=openapi.TYPE_INTEGER, description='From The Year')
         },
         required=['Text', 'Key']
     )
@@ -162,18 +163,24 @@ class CORETimeline(GenericAPIView):  # generics.CreateAPIView
         data = serializer.data
         text = data['Text']
         request_id = data['Key']
+        fromDate = data['FromYear']
         objInstance = ObjectId(request_id)
         if text == '':
             return Response("Got Empty String", status=status.HTTP_400_BAD_REQUEST)
-        Database = settings.MONGO.find_one(collection='userapp_user',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
         if Database:
             try:
                 rows = settings.CASSANDRA.query_topics(collection="datasource_core",keywords=text)
+                logging.info("Len-> Found"+str(len(rows)))
                 records = main.mapsets(list(rows),remove_cols=["fullText","abstract",])
                 records.sort(key=lambda x:x['datePublishedYear'])
                 result:dict = {}
                 for k,v in groupby(records,key=lambda x:x['datePublishedYear']):
-                    result[k] = list(v)
+                    if fromDate:
+                        if int(k)>=fromDate:
+                            result[k] = list(v)
+                    else:
+                        result[k] = list(v)
                 response_dict = {"RawText": text, "ProcessedData": result,
                         'ProcessedDate': datetime.utcnow().__str__(),
                         "RequestID": request_id, "status": 200,
@@ -245,7 +252,7 @@ class COREVennDiagram(GenericAPIView):  # generics.CreateAPIView
         objInstance = ObjectId(request_id)
         if text == '':
             return Response("Got Empty String", status=status.HTTP_400_BAD_REQUEST)
-        Database = settings.MONGO.find_one(collection='userapp_user',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
         if Database:
             try:
                 rows = settings.CASSANDRA.query_topics(collection="datasource_core",keywords=text)
@@ -264,3 +271,358 @@ class COREVennDiagram(GenericAPIView):  # generics.CreateAPIView
             response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
             return JsonResponse(response_dict,status=status.HTTP_401_UNAUTHORIZED)
 
+
+
+class CitiationsFetch(GenericAPIView):  # generics.CreateAPIView
+    # permission_classes = (Check_API_KEY_Auth,)
+    serializer_class = CitationSerializer
+    
+    login_schema = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'DOI': openapi.Schema(type=openapi.TYPE_STRING, description='ID for finding the Citations'),
+            'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+        },
+        required=['DOI', 'Key']
+    )
+    
+    login_schema_response = {
+        status.HTTP_200_OK: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_201_CREATED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_401_UNAUTHORIZED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+    }
+
+    @swagger_auto_schema(request_body=login_schema, responses=login_schema_response)
+    def post(self, request):
+        """
+        This text is the description for this API.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+        doi = data['DOI']
+        request_id = data['Key']
+        objInstance = ObjectId(request_id)
+        if doi == '':
+            return Response("Got Empty String", status=status.HTTP_500_BAD_REQUEST)
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        if Database:
+            records = UsersConfig.Citations.fetchCitations(doi)
+            response_dict = {"RawText": doi, "ProcessedData": records,
+                        'ProcessedDate': datetime.utcnow().__str__(),
+                        "RequestID": request_id, "status": 200,
+                        "Version": settings.VERSION}
+            return JsonResponse(response_dict, status=200)
+        else:
+            response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
+            return JsonResponse(response_dict,status=401)
+        
+class CitiationsCountFetch(GenericAPIView):  # generics.CreateAPIView
+    # permission_classes = (Check_API_KEY_Auth,)
+    serializer_class = CitationSerializer
+    
+    login_schema = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'DOI': openapi.Schema(type=openapi.TYPE_STRING, description='ID for finding the Citations'),
+            'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+        },
+        required=['DOI', 'Key']
+    )
+    
+    login_schema_response = {
+        status.HTTP_200_OK: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_201_CREATED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_401_UNAUTHORIZED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+    }
+
+    @swagger_auto_schema(request_body=login_schema, responses=login_schema_response)
+    def post(self, request):
+        """
+        This text is the description for this API.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+        doi = data['DOI']
+        request_id = data['Key']
+        objInstance = ObjectId(request_id)
+        if doi == '':
+            return Response("Got Empty String", status=status.HTTP_500_BAD_REQUEST)
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        if Database:
+            records = UsersConfig.Citations.fetchCitationsCount(doi)
+            response_dict = {"RawText": doi, "ProcessedData": records,
+                        'ProcessedDate': datetime.utcnow().__str__(),
+                        "RequestID": request_id, "status": 200,
+                        "Version": settings.VERSION}
+            return JsonResponse(response_dict, status=200)
+        else:
+            response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
+            return JsonResponse(response_dict,status=401)
+        
+class RefrenceFetch(GenericAPIView):  # generics.CreateAPIView
+    # permission_classes = (Check_API_KEY_Auth,)
+    serializer_class = CitationSerializer
+    
+    login_schema = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'DOI': openapi.Schema(type=openapi.TYPE_STRING, description='ID for finding the Citations'),
+            'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+        },
+        required=['DOI', 'Key']
+    )
+    
+    login_schema_response = {
+        status.HTTP_200_OK: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_201_CREATED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_401_UNAUTHORIZED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+    }
+
+    @swagger_auto_schema(request_body=login_schema, responses=login_schema_response)
+    def post(self, request):
+        """
+        This text is the description for this API.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+        doi = data['DOI']
+        request_id = data['Key']
+        objInstance = ObjectId(request_id)
+        if doi == '':
+            return Response("Got Empty String", status=status.HTTP_500_BAD_REQUEST)
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        if Database:
+            records = UsersConfig.Citations.fetchRefrences(doi)
+            response_dict = {"RawText": doi, "ProcessedData": records,
+                        'ProcessedDate': datetime.utcnow().__str__(),
+                        "RequestID": request_id, "status": 200,
+                        "Version": settings.VERSION}
+            return JsonResponse(response_dict, status=200)
+        else:
+            response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
+            return JsonResponse(response_dict,status=401)
+        
+class RefrenceCountFetch(GenericAPIView):  # generics.CreateAPIView
+    # permission_classes = (Check_API_KEY_Auth,)
+    serializer_class = CitationSerializer
+    
+    login_schema = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'DOI': openapi.Schema(type=openapi.TYPE_STRING, description='ID for finding the Citations'),
+            'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+        },
+        required=['DOI', 'Key']
+    )
+    
+    login_schema_response = {
+        status.HTTP_200_OK: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_201_CREATED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_401_UNAUTHORIZED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+    }
+
+    @swagger_auto_schema(request_body=login_schema, responses=login_schema_response)
+    def post(self, request):
+        """
+        This text is the description for this API.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+        doi = data['DOI']
+        request_id = data['Key']
+        objInstance = ObjectId(request_id)
+        if doi == '':
+            return Response("Got Empty String", status=status.HTTP_500_BAD_REQUEST)
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        if Database:
+            records = UsersConfig.Citations.fetchRefrencesCount(doi)
+            response_dict = {"RawText": doi, "ProcessedData": records,
+                        'ProcessedDate': datetime.utcnow().__str__(),
+                        "RequestID": request_id, "status": 200,
+                        "Version": settings.VERSION}
+            return JsonResponse(response_dict, status=200)
+        else:
+            response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
+            return JsonResponse(response_dict,status=401)
+        
+class CitationRefFetch(GenericAPIView):  # generics.CreateAPIView
+    # permission_classes = (Check_API_KEY_Auth,)
+    serializer_class = OpenCitationSerializer
+    
+    login_schema = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'OAI': openapi.Schema(type=openapi.TYPE_STRING, description='ID for finding the Citations'),
+            'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+        },
+        required=['OAI', 'Key']
+    )
+    
+    login_schema_response = {
+        status.HTTP_200_OK: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_201_CREATED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_401_UNAUTHORIZED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+    }
+
+    @swagger_auto_schema(request_body=login_schema, responses=login_schema_response)
+    def post(self, request):
+        """
+        This text is the description for this API.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+        doi = data['OAI']
+        request_id = data['Key']
+        objInstance = ObjectId(request_id)
+        if doi == '':
+            return Response("Got Empty String", status=status.HTTP_500_BAD_REQUEST)
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        if Database:
+            records = UsersConfig.Citations.fetchCitationMetaInfo(doi)
+            response_dict = {"RawText": doi, "ProcessedData": records,
+                        'ProcessedDate': datetime.utcnow().__str__(),
+                        "RequestID": request_id, "status": 200,
+                        "Version": settings.VERSION}
+            return JsonResponse(response_dict, status=200)
+        else:
+            response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
+            return JsonResponse(response_dict,status=401)
+        
+class MetainfoCitationFetch(GenericAPIView):  # generics.CreateAPIView
+    # permission_classes = (Check_API_KEY_Auth,)
+    serializer_class = CitationSerializer
+    
+    login_schema = openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'DOI': openapi.Schema(type=openapi.TYPE_STRING, description='ID for finding the Citations'),
+            'Key': openapi.Schema(type=openapi.TYPE_STRING, description='16 Chars long Private Key'),
+        },
+        required=['DOI', 'Key']
+    )
+    
+    login_schema_response = {
+        status.HTTP_200_OK: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_201_CREATED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+        status.HTTP_401_UNAUTHORIZED: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'RawText': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
+    }
+
+    @swagger_auto_schema(request_body=login_schema, responses=login_schema_response)
+    def post(self, request):
+        """
+        This text is the description for this API.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+        doi = data['DOI']
+        request_id = data['Key']
+        objInstance = ObjectId(request_id)
+        if doi == '':
+            return Response("Got Empty String", status=status.HTTP_500_BAD_REQUEST)
+        Database = settings.MONGO.find_one(collection='users_customuser',query={'_id':objInstance}) #62cb0800822bd4f866bb1284
+        if Database:
+            records = UsersConfig.Citations.fetchMetadata(doi)
+            response_dict = {"RawText": doi, "ProcessedData": records,
+                        'ProcessedDate': datetime.utcnow().__str__(),
+                        "RequestID": request_id, "status": 200,
+                        "Version": settings.VERSION}
+            return JsonResponse(response_dict, status=200)
+        else:
+            response_dict = {"Error": {"Reason": "Unauthorized Access, Please Use The Right Key"}}
+            return JsonResponse(response_dict,status=401)

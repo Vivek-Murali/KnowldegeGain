@@ -1,7 +1,9 @@
 from cmath import log
+from dataclasses import dataclass
 import json
 import ast
 import logging
+from unittest import result
 from urllib import response
 from pkg_resources import working_set
 import numpy as np
@@ -10,7 +12,7 @@ from apyori import apriori
 from django.conf import settings
 import requests
 import re
-import nest_asyncio
+#import nest_asyncio
 import aiohttp
 import math
 from numpy import linalg as LA
@@ -18,7 +20,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-nest_asyncio.apply()
+#nest_asyncio.apply()
 
 def findWholeWord(word:str):
     return re.compile(r'\b({0})\b'.format(word), flags=re.IGNORECASE).search
@@ -74,48 +76,54 @@ def mapsets(results:list,remove_cols:list):
     return response
 
 
-class citations:
+class Citations:
     def __init__(self):
         self.coreUrl = "https://opencitations.net/index/api/v1/"
+        self.robotxt = {'citattionsCount':'/citation-count/',
+                        'citations':'/citations/',
+                        'references':'/references/',
+                        'referenceCount':'/reference-count/',
+                        'citation':'/citation/',
+                        'metadata':'/metadata/'}
     
-    async def fetchCitationsCount(self, doi:str)->dict:
+    def fetchCitationsCount(self, doi:str)->dict:
         try:
-            response = requests.get(self.coreUrl + "/citation-count/{}".format(doi))
+            response = requests.get(self.coreUrl + "citation-count/{}".format(doi))
             return response.json()
         except Exception as e:
             return {"data":[],"messages":"Error:->{}".format(e)}
         
-    async def fetchCitations(self,doi:str)->dict:
+    def fetchCitations(self,doi:str)->dict:
         try:
-            response = requests.get(self.coreUrl + "/citations/{}".format(doi))
+            response = requests.get(self.coreUrl + "citations/{}".format(doi))
             return response.json()
         except Exception as e:
             return {"data":[],"messages":"Error:->{}".format(e)}
     
-    async def fetchRefrences(self,doi:str)->dict:
+    def fetchRefrences(self,doi:str)->dict:
         try:
-            response = requests.get(self.coreUrl + "/references/{}".format(doi))
+            response = requests.get(self.coreUrl + "references/{}".format(doi))
             return response.json()
         except Exception as e:
             return {"data":[],"messages":"Error:->{}".format(e)}
     
-    async def fetchRefrencesCount(self,doi:str)->dict:
+    def fetchRefrencesCount(self,doi:str)->dict:
         try:
-            response = requests.get(self.coreUrl + "/reference-count/{}".format(doi))
+            response = requests.get(self.coreUrl + "reference-count/{}".format(doi))
             return response.json()
         except Exception as e:
             return {"data":[],"messages":"Error:->{}".format(e)}
         
-    async def fetchCitationMetaInfo(self,oci:str)->dict:
+    def fetchCitationMetaInfo(self,oci:str)->dict:
         try:
-            response = requests.get(self.coreUrl + "/citation/{}".format(oci))
+            response = requests.get(self.coreUrl + "citation/{}".format(oci))
             return response.json()
         except Exception as e:
             return {"data":[],"messages":"Error:->{}".format(e)}
         
-    async def fetchMetadata(self,doi:str)->dict:
+    def fetchMetadata(self,doi:str)->dict:
         try:
-            response = requests.get(self.coreUrl + "/metadata/{}".format(doi))
+            response = requests.get(self.coreUrl + "metadata/{}".format(doi))
             return response.json()
         except Exception as e:
             return {"data":[],"messages":"Error:->{}".format(e)}
@@ -133,6 +141,18 @@ class citations:
             i = url.split('/')[-1]
             obj = await response.text()
             results[i] = obj
+            
+    def makeUrls(self, ids:str,mode:str)->list:
+        """
+        Bulk Extraction
+        Args:
+            ids (str): _description_
+            mode (str): [citattionsCount,citations,references,referenceCount,citation,metadata]
+
+        Returns:
+            list[str]: _description_
+        """
+        return [self.coreUrl+self.robotxt[mode]+idx for idx in ids.split('|')]
         
     async def fetchBulkcitations(self,urls:list)->dict:
         conn = aiohttp.TCPConnector(limit=None, ttl_dns_cache=300)
@@ -141,6 +161,10 @@ class citations:
         conc_req = len(urls)//2
         await self.gather_with_concurrency(conc_req, *[self.get_async(i, session, results) for i in urls])
         return results
+    
+    def getBulkCitations(self,ids:str,mode:str)->list:
+        URLS = self.makeUrls(ids,mode)
+        return self.fetchBulkcitations(URLS)
       
 
 class Associations:
@@ -300,9 +324,9 @@ class Associations:
         query_vector = self.build_query_vector(keyword, self.documents)
         return {keyword:self.compute_relevance(query_vector, self.documents)}
     
-    def computeDocumentTfidf(self,documents:list):
+    def computeDocumentTfidf(self):
         self.tf = TfidfVectorizer(analyzer='word')
-        self.tfidf_matrix =  self.tf.fit_transform(documents)
+        self.tfidf_matrix =  self.tf.fit_transform(self.documents)
         
     def build_query_vector(self,query:list):
         self.query_vector = self.tf.transform(query)
@@ -310,8 +334,8 @@ class Associations:
     def applyQueryCoverage(self)->list:
         return [idx.max() for idx in self.query_vector.toarray()]
     
-    def apply_density(self):
-        pass
+    def apply_density(self,codecoverage:list,querywords:list)->list:
+        return [{"word":idx, "coverage":idy} for idx,idy in zip(codecoverage,querywords)]
 
     def apply_associations(self, associated_word_density:dict, output_DataFrame:dict):
         if output_DataFrame['Left_Hand_Side'] in associated_word_density:
@@ -338,11 +362,22 @@ class Associations:
             results.append(element)
         return results
     
-    def normalizeOutput(self,output:list):
+    def makeDictionary(self, keyword):
         pass
-        
-            
-                 
+    
+    def normalizeOutput(self,output:list):
+        records,results = [], []
+        for _,idx in enumerate(output):
+            dataAccess:dict = {}
+            if idx['Left_Hand_Side'] in records:
+                pass
+            elif idx['Right_Hand_Side'] in records:
+                pass
+            else:
+                dataAccess['id'] = _
+                dataAccess['keyword'] = idx
+                pass
+                     
     def pipeline(self,keyword:str,results:list,min_support:float=0.003,min_lift:int=3,min_length:int=1,max_length:int=2):
         response = mapsets(results, remove_cols=[])
         self.logger.info("Mapping Set Function Executed")
@@ -359,8 +394,11 @@ class Associations:
         associated_query_dict = associated_query.to_dict(orient='records')
         self.logger.info("Associated Query DICTIONARY Created")
         associated_query_dict = self.indirect_association(keyword,associated_query_dict)
-        #associated_words = list(set(associated_query['Right_Hand_Side'].unique()).union(set(associated_query['Left_Hand_Side'].unique())))
-        #self.logger.info("Associated Words Created")
+        associated_words = list(set(associated_query['Right_Hand_Side'].unique()).union(set(associated_query['Left_Hand_Side'].unique())))
+        self.computeDocumentTfidf()
+        self.build_query_vector(associated_words)
+        results = self.apply_density(self.applyQueryCoverage(),associated_words)
+        self.logger.info(results)
         #associated_words = self.filtering_Location(associated_words)
         #self.logger.info("Associated Words II Created")
         #self.logger.info(associated_words)
