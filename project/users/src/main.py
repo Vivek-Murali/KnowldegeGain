@@ -77,6 +77,54 @@ def mapsets(results:list,remove_cols:list):
         response.append(Data)
     return response
 
+def mapdicts(idx,remove_cols:list):
+    print(idx)
+    Data:dict = {}
+    Data['uuid']=idx.uuid
+    Data['doi'] = idx.doi
+    Data['coreId'] = idx.coreId
+    Data['title'] = idx.title
+    Data['oai'] = idx.oai
+    Data['issn'] = idx.issn
+    Data['downloadUrl'] = idx.downloadUrl
+    Data['fullText'] = idx.fullText
+    Data['publisher'] = idx.publisher
+    Data['abstract'] = idx.abstract
+    Data['datePublished']= idx.datePublished.strftime('%Y-%m-%d')
+    Data['datePublishedYear'] = idx.datePublished.strftime('%Y')
+    Data['dateUpdated'] = idx.dateUpdated
+    Data['pdfHashValue'] = idx.pdfHashValue
+    Data['year'] = idx.year
+    Data['magId'] = idx.magId
+    Data['urls'] = idx.urls
+    Data['relations'] = idx.relations
+    Data['authors'] = idx.authors
+    Data['fullTextIdentifier']= idx.fullTextIdentifier
+    Data['topics'] = idx.topics
+    Data['subjects'] = idx.subjects
+    Data['contributors'] = idx.contributors
+    Data['identifiers'] = idx.identifiers
+    Data['enrichments'] = ast.literal_eval(idx.enrichments)
+    if idx.language:
+        Data['language'] = {k:y for k,y in idx.language.items()}
+    else:
+        Data['language'] = None
+    if idx.journals:
+        journals = []
+        for idy in idx.journals:
+            journal = {}
+            journal['identifiers'] = idy.identifiers
+            journal['title'] = idy.title
+            journals.append(journal)
+        Data['journals'] = journals
+    else:
+        Data['journals'] = None
+    if len(remove_cols)>0:
+        for idx in remove_cols:
+            del Data[idx]
+    print(Data)
+    return Data
+
 
 class Citations:
     def __init__(self):
@@ -87,6 +135,7 @@ class Citations:
                         'referenceCount':'/reference-count/',
                         'citation':'/citation/',
                         'metadata':'/metadata/'}
+        self.excludeContains = [None, '', ' ', 'null', 'NA', 'na', '   ']
     
     def fetchCitationsCount(self, doi:str)->dict:
         try:
@@ -129,6 +178,11 @@ class Citations:
             return response.json()
         except Exception as e:
             return {"data":[],"messages":"Error:->{}".format(e)}
+        
+    def RelationsCiationRefrence(self,dois:list)->dict:
+        Citations = [self.fetchCitationsCount(idx)[0]['count'] for idx in dois if idx not in self.excludeContains]
+        Ref = [self.fetchRefrencesCount(idx)[0]['count'] for idx in dois if idx not in self.excludeContains]
+        return {'citationsScore':Citations, 'references':Ref}
         
     async def gather_with_concurrency(self,n, *tasks):
         semaphore = asyncio.Semaphore(n)
@@ -423,7 +477,7 @@ class Associations:
             result.append(idx['Right_Hand_Side'])
         return list(set(result))
     
-    def makeFinalResponse(self, response,results,coverageResults):
+    def makeFinalResponse(self, response,results,coverageResults,association_dataset):
         finalResponse,removeDuplicates = [],[]
         for key,value in response.items():
             data = value
@@ -435,7 +489,7 @@ class Associations:
                     data['density'] = results[key]
                 else:
                     data['density'] = 0.0
-            
+                data['coreids']  = association_dataset.index[association_dataset['topics'].str.contains(value['keyword'])].tolist()
                 if value['keyword'] not in removeDuplicates:
                     finalResponse.append(data)
                     removeDuplicates.append(value['keyword'])
@@ -471,5 +525,5 @@ class Associations:
         results = self.apply_density(self.applyQueryCoverage(),cumulativeWord)
         coverageResults = self.computeCoverage(cumulativeWord)
         self.logger.info("Computation Done")
-        finalResponse = self.makeFinalResponse(self.normalizeOutput(cumulativeDict),results,coverageResults)
+        finalResponse = self.makeFinalResponse(self.normalizeOutput(cumulativeDict),results,coverageResults,association_dataset)
         return finalResponse
