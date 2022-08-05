@@ -32,7 +32,7 @@ SECRET_KEY = env('SECRET_KEY', default='123')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1','0.0.0.0']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1','0.0.0.0', '20.42.29.41']
 
 
 # Application definition
@@ -76,6 +76,9 @@ CORS_ORIGIN_WHITELIST = [
     'http://localhost:8080',  # for localhost (Developlemt)
     'http://192.168.0.50:8080',
     "http://0.0.0.0:3000"
+    "http://20.42.29.41/",
+    "http://20.42.29.41:3000",
+    "http://20.42.29.41:8080"
 ]
 CORS_ALLOW_ALL_ORIGINS = True # If this is used then `CORS_ALLOWED_ORIGINS` will not have any effect
 CORS_ALLOW_CREDENTIALS = True
