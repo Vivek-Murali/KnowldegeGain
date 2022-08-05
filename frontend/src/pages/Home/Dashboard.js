@@ -109,7 +109,6 @@ export default function Dashboard() {
         console.error(err);
       });
     }else{
-      alert("please enter value")
     }
     setToSearch(false);
   },[toSearch]);
@@ -225,10 +224,11 @@ export default function Dashboard() {
             onKeyUp={(e) => keyPressed(e.key)}
           />
           <select
+            className="form-select form-select-lg mb-3"
             id="year"
             name="year"
             onChange={(e) => setYear(e.target.value)}
-            style={{ color: "green", background: "red" }}
+            style={{}}
           >
             <option>year</option>
             <option value="1950">1950</option>
@@ -339,11 +339,9 @@ export default function Dashboard() {
                         {Object.values(item)[0].map((_, index) => (
                           <div
                             style={{
-                              textAlign: "center",
-                              justifyContent: "center",
                             }}
                           >
-                            title: {_.title}
+                            title: <h5>{_.title}</h5>
                             <br></br>
                             topics: {JSON.stringify(_.topics.join(","))}
                             <br></br>
@@ -351,7 +349,7 @@ export default function Dashboard() {
                             <br></br>
                             oai: {_.oai}
                             <br></br>
-                            urls: {JSON.stringify(_.urls.join(","))}
+                            urls: {_.urls.map((el,i )=> <a href={el}>, {el}</a>)}
                             <hr></hr>
                           </div>
                         ))}
